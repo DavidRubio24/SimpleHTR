@@ -1,9 +1,14 @@
 data/words/
 data/words.txt
 src/__pycache__/
+srcWS/__pycache__/
 model/checkpoint
 model/snapshot-*
 notes/
 *.so
 *.pyc
 .idea/
+out/*.png
+text/*
+words/*
+predictions/*

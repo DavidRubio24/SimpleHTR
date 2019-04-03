@@ -163,11 +163,13 @@ def main():
 
     timeElapsed('Loading model took')
 
-    for (i, filePath) in enumerate(FilePaths.fnInfers * 3):
+    infer(model, FilePaths.fnInfer)
 
-      infer(model, filePath)
+    # for (i, filePath) in enumerate(FilePaths.fnInfers * 3):
 
-      timeElapsed(f'Time elapsed for prediction {i}')
+    #   infer(model, filePath)
+
+    #   timeElapsed(f'Time elapsed for prediction {i}')
 
 
 
