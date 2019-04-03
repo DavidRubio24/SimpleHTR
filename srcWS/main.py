@@ -86,11 +86,11 @@ def main():
 
 
     # iterate over all segmented words
-    print('Segmented into %d words'%len(res))
-    for (index, words) in enumerate(res):
-      (wordBox, wordImg) = words
+    print(f'Segmented into {len(res)} words')
+    for (index, wordBox) in enumerate(res):
       # wordBox = extendBox(img, wordBox) # Extendemos las imágenes
       (x, y, w, h) = wordBox
+      wordImg = img[y : y+h, x : x+w]
       # save word
       cv2.imwrite(f'../words/{f}/{index:0>3}.png', wordImg)
       # draw bounding box in summary image
@@ -107,6 +107,7 @@ def main():
     for (index, item) in enumerate(heights):
       deviation = (item - our_mean) / our_stDev
       wordsDict[f'{index:0>3}.png'] = {'height_deviation':deviation}
+
     # Usamos el formato JSON, que python se encarga de formatear
     print(f'Saving in ../predictions/{f}.json...')
     file = open(f'../predictions/{f}.json', 'w+')

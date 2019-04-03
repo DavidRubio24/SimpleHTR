@@ -1,7 +1,100 @@
 import math
 import cv2
 import numpy as np
+import statistics
 
+img = np.array([])
+
+userAnswer = 0
+
+userAnswerCode = {
+  'correct':0,
+  'none':1,
+  'modify':2,
+  'add':3,
+  'modify&add':4
+}
+
+userBox = []
+
+
+def isOutlier(box, boxes):
+  """
+    Comprueba si la caja box=(x, y, w, h) sobresale de entre las demas y probablemente no está bien segmentada.
+    Esta implementación solo tiene en cuenta cuanto se desvia la altura de la caja de la media de las cajas.
+    TODO: mejorar la predicción
+  """
+
+  heights = [i[3] for i in boxes]
+
+  meanHeight = statistics.mean(heights)
+  stDevHeight = statistics.stdev(heights)
+
+  outlier = box[3] > meanHeight + 2 * stDevHeight  or  box[3] < meanHeight - 1.5 * stDevHeight
+
+  print(f"{'&' if outlier else '@'}", end='')
+
+  return outlier
+
+def getRectangleGUI(event, x, y, flags, parameters):
+  """
+
+  """
+  global img, userBox, userAnswer
+
+  img_copy = np.copy(img)
+
+  if event == cv2.EVENT_LBUTTONDOWN:
+    userAnswer = userAnswerCode['modify']
+    if len(userBox) in (0, 2):
+      userBox = [(x, y)]
+      # Dibujamos un punto donde el usuario a clicado
+      cv2.circle(img_copy, userBox[0], 1, (0,0,255), -1)
+    else:
+      userBox.append((x, y))
+      # Dibujamos un rectanguo entre los puntos que ha clicado el usuario
+      cv2.rectangle(img_copy, userBox[0], userBox[1], (0, 0, 255), 1)
+    cv2.imshow('image', img_copy)
+    print(f'Pressed on ({x},{y})')
+
+  if event == cv2.EVENT_RBUTTONDOWN:
+    userAnswer = userAnswerCode['add']
+    print('Right clicked')
+
+def askUserConfirmation(image, box):
+  """
+    Pide al usuario que segmente la palabra correctamente.
+  """
+  global img
+  img = image
+
+  (x, y, w, h) = box
+  img_copy = np.copy(image)
+  cv2.rectangle(img_copy, (x, y), (x+w, y+h), (0,255,0), 1)
+  print('Clicka en dos puntos para seleccionar el rectangulo que los une. Click derecho para deshacer')
+  cv2.imshow('image', img_copy)
+  cv2.setMouseCallback('image', on_mouse = getRectangleGUI)
+  cv2.waitKey(0)
+  if userAnswer == userAnswerCode['modify']:
+    box = [0, 0, 0, 0]
+    box[0] = min(userBox[:][0])
+    box[1] = min(userBox[:][1])
+    box[2] = abs(userBox[0][0] - userBox[1][0])
+    box[3] = abs(userBox[0][1] - userBox[1][1])
+    boxes = [box]
+  elif userAnswer == userAnswerCode['none']:
+    boxes = []
+  elif userAnswer == userAnswerCode['correct']:
+    boxes = [box]
+  elif userAnswer == userAnswerCode['add']:
+    newBox = [0, 0, 0, 0]
+    newBox[0] = min(userBox[:][0])
+    newBox[1] = min(userBox[:][1])
+    newBox[2] = abs(userBox[0][0] - userBox[1][0])
+    newBox[3] = abs(userBox[0][1] - userBox[1][1])
+    boxes = [box, newBox]
+
+  return boxes
 
 def wordSegmentation(img, kernelSize=25, sigma=11, theta=6, minArea=0):
   """Scale space technique for word segmentation proposed by R. Manmatha: http://ciir.cs.umass.edu/pubfiles/mm-27.pdf
@@ -39,12 +132,18 @@ def wordSegmentation(img, kernelSize=25, sigma=11, theta=6, minArea=0):
       continue
     # append bounding box and image of word to result list
     currBox = cv2.boundingRect(c) # returns (x, y, w, h)
-    (x, y, w, h) = currBox
-    currImg = img[y:y+h, x:x+w]
-    res.append((currBox, currImg))
+    res.append(currBox)
+  boxes = set()
+  for (index, box) in enumerate(res):
+    if isOutlier(box, res):
+      boxes.update(askUserConfirmation(img, box))
+    else:
+      boxes.add(box)
+
 
   # return list of words, ordenadas de izquierda a derecha y de arriba a abajo más o menos
-  return imgFiltered, imgThres, sorted(res, key=lambda entry: 10 * (entry[0][1] + entry[0][3]//2) + (entry[0][0] + entry[0][2]//2))
+  return imgFiltered, imgThres, sorted(list(boxes), key=lambda entry: 10 * (entry[1] + entry[3]//2) + (entry[0] + entry[2]//2))
+  # return imgFiltered, imgThres, res
 
 
 def prepareImg(img, height, resize=True):
