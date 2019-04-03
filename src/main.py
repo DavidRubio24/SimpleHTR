@@ -1,15 +1,18 @@
 from __future__ import division
 from __future__ import print_function
 
-import sys
+import os
 import argparse
 import cv2
 import editdistance
 import time
+import json
 from DataLoader import DataLoader, Batch
 from Model import Model, DecoderType
 from SamplePreprocessor import preprocess
 
+max_upper_deviation = 2
+max_lower_deviation = -1.5
 
 class FilePaths:
   "filenames and paths to data"
@@ -100,8 +103,9 @@ def infer(model, fnImg):
   img = preprocess(cv2.imread(fnImg, cv2.IMREAD_GRAYSCALE), Model.imgSize)
   batch = Batch(None, [img])
   (recognized, probability) = model.inferBatch(batch, True)
-  print('Recognized:', '"' + recognized[0] + '"')
-  print('Probability:', probability[0])
+  return recognized[0], probability[0]
+  # print('Recognized:', '"' + recognized[0] + '"')
+  # print('Probability:', probability[0])
 
 
 
@@ -163,7 +167,35 @@ def main():
 
     timeElapsed('Loading model took')
 
-    infer(model, FilePaths.fnInfer)
+    # infer(model, FilePaths.fnInfer)
+
+    prediction, probability = infer(model, '../words/binarizedOriginal.png/29.png')
+
+    print(f'prediction: {prediction}\nProbability: {probability}')
+
+    timeElapsed('Predicting took')
+
+    textForders = os.listdir('../words/')
+    for folder in textForders:
+      print(f'We are in ../words/{folder}')
+      wordImgs = os.listdir(f'../words/{folder}')
+
+      with open(f'../predictions/{folder}.json') as file:
+        textDict = json.load(file)
+      for wordImg in wordImgs:
+        print(f'We are recognizing ../words/{folder}/{wordImg:<15}')
+        height_deviation = textDict[f'{wordImg}']['height_deviation']
+        if height_deviation < max_upper_deviation and height_deviation > max_lower_deviation:
+          recognized, probability = infer(model, f'../words/{folder}/{wordImg}')
+          textDict[f'{wordImg}']['prediction']  = recognized
+          textDict[f'{wordImg}']['probability'] = probability.item()
+          timeElapsed(f'Predicting ../words/{folder}/{wordImg:<15} took')
+        else:
+          print('#### Too much height deviation.')
+        # TODO: escribir una linea en '../predictions/{folder}.txt' indicando {wordImg}, recognized, probability
+      file = open(f'../predictions/{folder}.json', 'w+')
+      file.write(json.dumps(textDict))
+      file.close()
 
     # for (i, filePath) in enumerate(FilePaths.fnInfers * 3):
 

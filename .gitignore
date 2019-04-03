@@ -12,3 +12,4 @@ out/*.png
 text/*
 words/*
 predictions/*
+summary/*
